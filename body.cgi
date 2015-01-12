@@ -257,7 +257,7 @@ if ( $level == 0 ) {
     # Define remote version
     use LWP::Simple;
     my $remote_version
-        = get('http://rostovtsev.ru/.git/authentic-theme/VERSION.txt');
+        = get('https://raw.githubusercontent.com/qooob/authentic-theme/master/VERSION.txt');
     open( FILENAME, '<', \$remote_version );
 
     # Trim spaces
@@ -317,8 +317,6 @@ if ( $level == 0 ) {
             . $text{'theme_update'} . '</a>'
             . '<a class="btn btn-xs btn-info" style="padding:0 8px; height:21px" target="_blank" href="https://github.com/qooob/authentic-theme/blob/master/CHANGELOG.md"><i class="fa fa-pencil-square-o">&nbsp;</i>'
             . $text{'theme_changelog'} . '</a>'
-            . '<a class="btn btn-xs btn-warning" style="padding:0 8px; height:21px" target="_blank" href="https://rostovtsev.ru/.git/authentic-theme/authentic-theme-latest.wbt.gz"><i class="fa fa-download">&nbsp;</i>'
-            . $text{'theme_download'} . '</a>'
             . '<a class="btn btn-xs btn-default" style="padding:0 8px; height:21px" target="_blank" href="https://github.com/qooob/authentic-theme#donation"><i class="fa fa-rub">&nbsp;</i>'
             . $text{'theme_donate'} . '</a>'
             . '</div>';
@@ -675,7 +673,7 @@ elsif ( $level == 3 ) {
     # Define remote version
     use LWP::Simple;
     my $remote_version
-        = get('http://rostovtsev.ru/.git/authentic-theme/VERSION.txt');
+        = get('https://raw.githubusercontent.com/qooob/authentic-theme/master/VERSION.txt');
     open( FILENAME, '<', \$remote_version );
 
     # Trim spaces
