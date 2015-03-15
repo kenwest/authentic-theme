@@ -1,5 +1,7 @@
+#!/usr/bin/perl
+
 #
-# Authentic Theme 9.0.3 (https://github.com/qooob/authentic-theme)
+# Authentic Theme 10.1.2 (https://github.com/qooob/authentic-theme)
 # Copyright 2015 Ilia Rostovtsev <programming@rostovtsev.ru>
 # Licensed under MIT (https://github.com/qooob/authentic-theme/blob/master/LICENSE)
 #
@@ -7,30 +9,44 @@
 BEGIN { push( @INC, ".." ); }
 use WebminCore;
 &ReadParse();
-
-init_config();
+&init_config();
 
 # Detecting Virtualmin/Cloudmin request
 $is_virtualmin = index( $ENV{'REQUEST_URI'}, 'virtualmin' );
 $is_cloudmin   = index( $ENV{'REQUEST_URI'}, 'cloudmin' );
+$is_webmail    = index( $ENV{'REQUEST_URI'}, 'webmail' );
 
 #Going to default right page
 $minfo = &get_goto_module();
 $__goto
-    = ( $is_virtualmin != -1 || $is_cloudmin != -1 ) ? '/body.cgi'
+    = ( $is_virtualmin != -1 || $is_cloudmin != -1 ) ? '/sysinfo.cgi'
     : $minfo ? "$minfo->{'dir'}/"
-    :          "/body.cgi";
+    :          "/sysinfo.cgi";
 
 %text    = &load_language($current_theme);
 %gaccess = &get_module_acl( undef, "" );
 $title   = &get_html_framed_title();
+
+if (  !-d $root_directory . "/authentic-theme"
+    && -d $root_directory . "/authentic-theme-master" )
+{
+    die("ATTENTION:\nHave you downloaded Authentic Theme from GitHub, and unpacked it manually\nto Webmin directory? In this case you need to rename theme directory from\n`authentic-theme-master` to `authentic-theme` in order to make theme work.\nAfterward, you will need to reset the theme again in Webmin Configuration.\n"
+    );
+}
 
 # Load dependencies
 do "authentic-theme/authentic-lib.cgi";
 
 # Redirect user away, in case requested mode can not be satisfied
 if (   ( $is_virtualmin != -1 && !&foreign_available("virtual-server") )
-    || ( $is_cloudmin != -1 && !&foreign_available("server-manager") ) )
+    || ( $is_cloudmin != -1 && !&foreign_available("server-manager") )
+    || ($is_webmail != -1
+        && (&get_product_name() ne 'usermin'
+            || ( &get_product_name() eq 'usermin'
+                && !&foreign_available("mailbox") )
+        )
+    )
+    )
 {
     print "Set-Cookie: redirect=0; path=/\r\n";
     $webmin
@@ -88,17 +104,6 @@ if (   index( $ENV{'REQUEST_URI'}, 'updating' ) != -1
 
 parse_virtual_server_access_level();
 
-# Force regular user to be in Virtualmin
-if (   $virtual_server_access_level eq '2'
-    && $ENV{'REQUEST_URI'} ne '/?virtualmin' )
-{
-    $virtualmin
-        = ( $ENV{'HTTPS'} ? 'https://' : 'http://' )
-        . $ENV{'HTTP_HOST'}
-        . '/?virtualmin';
-    print "Location: $virtualmin\n\n";
-}
-
 # Provide unobstructive access for AJAX calls
 if ( $in{'xhr-navigation'} eq '1' ) {
     print "Content-type: text/html\n\n";
@@ -114,6 +119,17 @@ elsif ( $in{'xhr-switch'} eq '1' ) {
 }
 else {
 
+    # Force regular user to be in Virtualmin
+    if (   $virtual_server_access_level eq '2'
+        && $ENV{'REQUEST_URI'} ne '/?virtualmin' )
+    {
+        $virtualmin
+            = ( $ENV{'HTTPS'} ? 'https://' : 'http://' )
+            . $ENV{'HTTP_HOST'}
+            . '/?virtualmin';
+        print "Location: $virtualmin\n\n";
+    }
+
     &header($title);
 
     #### Wrapper. Start.
@@ -125,6 +141,8 @@ else {
         . $is_virtualmin
         . '" data-server-manager="'
         . $is_cloudmin
+        . '" data-webmail="'
+        . $is_webmail
         . '" data-access-level="'
         . $virtual_server_access_level
         . '" data-hostname="'
@@ -149,7 +167,13 @@ else {
     ### Product switcher. Start.
     #
     #
-    if (   !&foreign_available("virtual-server")
+    if ( &get_product_name() eq 'usermin'
+        && &foreign_available("mailbox") )
+    {
+        our $switch_mode  = '2';
+        our $product_mode = '4';
+    }
+    elsif (!&foreign_available("virtual-server")
         && !&foreign_available("server-manager")
         || &get_product_name() eq 'usermin'
         || $virtual_server_access_level eq '2' )
@@ -196,9 +220,13 @@ else {
         print_switch_virtualmin(1);
         print_switch_cloudmin(1);
     }
+    if ( $product_mode eq '4' ) {
+        print_switch_webmail(1);
+        print_switch_webmin(1);
+    }
 
     print '<a></a>
-            </div><br><br><br>';
+            </div><br style="line-height:4.4">';
 
     #
     #
@@ -218,30 +246,9 @@ else {
 
     print '</aside>' . "\n";
     #### Left Side. End.
-    #Process logo
-    if ( -r $config_directory . "/authentic-theme/logo.png" ) {
 
-# Store logo in config directory, defaults in most case to `/etc/webmin`. Theme config directory is `/etc/webmin/authentic-theme`
-        if (  -s $config_directory
-            . "/authentic-theme/logo.png" ne -s $root_directory
-            . "/authentic-theme/images/logo.png" )
-        {
-            # Update logo in case it changed
-            copy_source_dest(
-                $config_directory . "/authentic-theme/logo.png",
-                $root_directory . "/authentic-theme/images"
-            );
-        }
-        print '<div class="__logo">';
-        print '<img src="' . $gconfig{'webprefix'} . '/images/logo.png">';
-        print '</div>' . "\n";
-    }
-    elsif ( -r $root_directory . "/authentic-theme/images/logo.png"
-        && !-r $config_directory . "/authentic-theme/logo.png" )
-    {
-        # Delete logo
-        unlink $root_directory . "/authentic-theme/images/logo.png";
-    }
+    #Process logo
+    embed_logo();
 
     ### Right Side. Start.
     print '<div id="content" class="__page">' . "\n";
@@ -255,7 +262,7 @@ else {
         . (
         ( !-f $root_directory . '/authentic-theme/update' )
         ? $__goto
-        : '/body.cgi'
+        : '/sysinfo.cgi'
         ) . '">' . "\n";
     print '</iframe>' . "\n";
     print '</div>' . "\n";
